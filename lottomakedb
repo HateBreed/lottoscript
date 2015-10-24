@@ -1,0 +1,64 @@
+#!/bin/bash
+
+F="lottorows"
+FDB="lottodb"
+NARRAY=""
+
+LC=`cat "$F"|wc -l`
+C=1
+
+# Read lines from file
+while read line; do
+	# Longer than year+round
+  if [ ${#line} -gt 8 ] ; then
+ 		NUM=`echo $line|cut -d':' -f2|cut -d' ' -f1` # Numbers
+  	LNUM=`echo $line|cut -d' ' -f2`	# Additional numbers
+
+  	# Go through numbers and add 1 to NARRAY[NUMBER]
+  	for i in `echo $NUM|cut -d',' -f1- --output-delimiter=" "`; do
+  		if [ -z ${NARRAY[$i]} ] ; then
+  			NARRAY[$i]="1"
+  		else
+	 		INT=${NARRAY[$i]}
+  			NARRAY[$i]=$((INT+1))
+	  	fi
+  	done
+
+  	# Go through additional numbers and add 1 to LARRAY[NUMBER]
+  	for j in `echo $LNUM|cut -d',' -f1- --output-delimiter=" "` ; do
+  		if [ -z ${LARRAY[$j]} ] ; then
+  			LARRAY[$j]="1"
+  		else
+	 		INT=${LARRAY[$j]}
+  			LARRAY[$j]=$((INT+1))
+	  	fi
+  	done
+	fi
+
+	# If this is the last line
+	if [ $C = $LC ] ; then
+		X=1
+		while [ $X -lt 40 ] ; do # Print out the counts of numbers
+			echo -n ${NARRAY[$X]}
+			if [ $((X+1)) = 40 ] ; then echo "" ;	else echo -n "," ; fi
+			X=$((X+1))
+		done
+		# Print the row to file
+		# ToDo
+		# Combine number and additional number counts and print the row
+		X=1
+		while [ $X -lt 40 ] ; do
+			INT=`expr ${NARRAY[$X]} + ${LARRAY[$X]}`
+			echo -n $INT
+			if [ $((X+1)) = 40 ] ; then echo "" ;	else echo -n "," ; fi
+			X=$((X+1))
+		done
+		# Print the row to file
+		# ToDo
+		# Add 2 last rows of numbers. ToDo: print to file
+		tail -2 "$F"
+	else # Otherwise go to the next line
+		C=$((C+1))
+	fi
+done < "$F"
+

@@ -1,0 +1,188 @@
+#!/bin/bash
+
+CLASSES=(T H E A U L B)
+
+function sortpattern() {
+	if [ -z $1 ] ; then echo "not done"
+	else
+		local PAT="$1"
+		local SPATTERN=""
+		local COUNT=0
+
+		for CL in ${CLASSES[*]} ; do
+			GPAT=${PAT//[^$CL]}
+			CC[$COUNT]=${#GPAT}
+			COUNT=$((COUNT+1))
+		done
+
+		local COUNT=0
+		while [ $COUNT -lt 7 ] ; do
+			C=0
+			while [ $C -lt ${CC[$COUNT]} ] ; do
+				SPATTERN="$SPATTERN${CLASSES[$COUNT]}"
+				C=$((C+1))
+			done
+			COUNT=$((COUNT+1))
+		done
+		echo "$SPATTERN"
+	fi
+}
+
+function readlimits() {
+	if [ ! -z $1 ] ; then
+		LIMITS=( $(cat "$1"|cut -d',' -f1- --output-delimiter=" ") )
+		TC="${LIMITS[0]}"
+		HC="${LIMITS[1]}"
+		EC="${LIMITS[2]}"
+		AC="${LIMITS[3]}"
+		UC="${LIMITS[4]}"
+		LC="${LIMITS[5]}"
+	fi
+}
+
+TOP=0 # > 12 (9)
+TC="11"
+
+HIGH=0 # 8 - 11 (6)
+HC="6"
+
+ELEV=0 # 3 - 7 (2)
+EC="2"
+
+AVGS=0 # -2 - 2 (-3)
+AC="-3"
+
+LESS=0 # -3 - -7 (-7)
+UC="-7"
+
+LOW=0 # -8 - -11 (-11)
+LC="-11"
+
+
+BOT=0 # < -12
+
+F1="lottodb"
+F2="lottorows"
+F4="classlimits"
+
+if [ -f "$F4" ] ; then readlimits "$F4" ; fi
+
+if [ -z "$1" ] ; then TYPE="1"; else TYPE="$1" ; fi
+if [ -z "$2" ] ; then MODE=false; else MODE=true; fi
+
+F3="lottopatterns""$TYPE""~"
+if [ -f "$F3" ] ; then rm "$F3" ; fi
+
+ROW=`cat "$F1"|sed -n "$TYPE"p`
+
+# Lottodb into array
+COUNT=0
+for i in `echo $ROW|cut -d',' -f1- --output-delimiter=" "`; do
+	COUNT=$((COUNT+1))
+	ARRAY[$COUNT]=$i
+done
+
+# Get last entry
+if [ -f "$F1" ] ; then
+  LROW=`tail -1 $F1`
+  if [ ${#LROW} -gt 6 ] ; then 
+  	LYEAR=`echo $LROW|grep -o [0-9][0-9][0-9][0-9]`
+  	LROUND=`echo $LROW|grep -o /[0-9]*|sed 's/\///'`
+	fi
+fi
+
+if [ -z "$3" ] ; then STARTY=$((LYEAR-3)) ; else STARTY="$3" ; fi
+if [ -z "$4" ] ; then STARTM=1 ; else STARTM="$4" ; fi
+
+# Read lines from year onwards
+
+POS=0
+while read line ; do
+	if [ ${#line} -gt 7 ] ; then
+		Y=`echo $line|grep -o [0-9][0-9][0-9][0-9]`
+  	R=`echo $line|grep -o /[0-9]*|sed 's/\///'`
+
+  	if [ ! $Y -lt $STARTY ] ; then
+  		POS=$((POS+1))
+  		LROWS[$POS]=`echo $line|cut -d':' -f2|cut -d' ' -f1,2 --output-delimiter=","`
+  	fi
+	fi
+done < "$F2"
+
+X=$POS
+while [ $X -gt 0 ] ; do
+	# Reduce each entry from db
+	for ENTRY in `echo ${LROWS[$X]}|cut -d',' -f1- --output-delimiter=" "`; do
+		ARRAY[$ENTRY]=$((${ARRAY[$ENTRY]}-1))
+	done
+
+	# Calculate new avg in array
+	i=1
+	SUM=0
+	while [ $i -lt $((COUNT+1)) ] ; do
+		SUM=$((SUM+${ARRAY[$i]}))
+		i=$((i+1))
+	done
+	AVG=`echo "scale=2; $SUM / $COUNT"|bc`
+
+	DTOTAL=0
+	PATTERN=""
+	NUMBERS=0
+	# Go through every number and calculate difference of that numbers count to average
+	for ENTRY in `echo ${LROWS[$X]}|cut -d',' -f1- --output-delimiter=" "`; do
+		DIFF=`echo "scale=2; (${ARRAY[$ENTRY]} / $AVG - 1) * 100 "|bc|cut -d'.' -f1`
+		DTOTAL=$((DTOTAL+DIFF))
+		NUMBERS=$((NUMBERS+1))
+		# Classify the difference by percentage
+		if [ $DIFF -gt $TC ] ; then 
+			TOP=$((TOP+1))
+			CLASS="T"
+		else
+			TCL=$((TC+1))
+			if [ $DIFF -lt $TCL ] ; then
+				if [ $DIFF -gt $HC ] ; then
+					HIGH=$((HIGH+1))
+					CLASS="H"
+					#echo -n "H"
+				elif [ $DIFF -gt $EC ] ; then
+					ELEV=$((ELEV+1))
+					CLASS="E"
+					#echo -n "E"
+				elif [ $DIFF -gt "$AC" ] ; then
+					AVGS=$((AVGS+1))
+					CLASS="A"
+					#echo -n "A"
+				elif [ $DIFF -gt "$UC" ] ; then
+					LESS=$((LESS+1))
+					CLASS="U"
+					#echo -n "U"
+				elif [ $DIFF -gt "$LC" ] ; then
+					LOW=$((LOW+1))
+					CLASS="L"
+					#echo -n "L"
+				else
+					BOT=$((BOT+1))
+					CLASS="B"
+					#echo -n "B"
+				fi
+			fi
+		fi
+		if [ $NUMBERS -le 7 ] ; then PATTERN="$PATTERN$CLASS" ; fi
+	done
+	#echo "TOTALDIFF=$DTOTAL"
+  X=$((X-1))
+  SORTED=$(sortpattern "$PATTERN")
+  echo "$SORTED" >> "$F3"
+  if $MODE ; then echo -e "${LROWS[$X]}   \t$SORTED" ; fi
+done
+
+# The count of numbers for coupon
+TOP=`echo "scale=1; $TOP / $POS"|bc`
+HIGH=`echo "scale=1; $HIGH / $POS"|bc`
+ELEV=`echo "scale=1; $ELEV / $POS"|bc`
+AVGS=`echo "scale=1; $AVGS / $POS"|bc`
+LESS=`echo "scale=1; $LESS / $POS"|bc`
+LOW=`echo "scale=1; $LOW / $POS"|bc`
+BOT=`echo "scale=1; $BOT / $POS"|bc`
+
+echo "$TOP:$HIGH:$ELEV:$AVGS:$LESS:$LOW:$BOT"

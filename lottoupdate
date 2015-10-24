@@ -1,0 +1,102 @@
+#!/bin/bash
+
+DEBUG=0
+LYEAR=2000
+LROUND=1
+
+LFILE="lottotmp~"
+LROWAFTER=20
+
+CROUND=`date +"%V"`
+CYEAR=`date +"%G"`
+
+RFILE="lottorows"
+REPLACE=0
+
+debug() {
+	if [ ! -z "$1" ] ; then
+		if [ $DEBUG -eq 1 ] ; then echo "DEBUG: $1" ; fi
+	fi
+}
+
+if [ -f "$RFILE" ] ; then
+	LROW=`tail -1 $RFILE`
+	LYEAR=`echo $LROW|grep -o [0-9][0-9][0-9][0-9]`
+	LROUND=`echo $LROW|grep -o /[0-9]*|sed 's/\///'`
+	if [ $LROUND -gt 9 ] ; then REPLEN=8 ; else REPLEN=7 ; fi
+	if [ ${#LROW} -gt 10 ] ; then LROUND=$((LROUND+1)) ; fi
+	if [ ${#LROW} -eq $REPLEN ] ; then
+		debug "REPLACING"
+		REPLACE=1
+		REPYEAR=$LYEAR
+		REPROUND=$LROUND
+	else
+		REPLACE=0
+                debug "Replace=0 ${#LROW} $REPLEN"
+	fi
+fi
+
+if [ $LYEAR -eq $CYEAR ] && [ $LROUND -eq $CROUND ] ; then
+  if [ $REPLACE -eq 0 ] ; then exit 1 ; fi
+  #if [ `date +"%w"` -gt 0 ] ; then exit 1 ; fi
+fi
+
+PRINTLINE=""
+
+while [ "$LYEAR" -lt "$((CYEAR+1))" ] ; do
+
+	while [ "$LROUND" -lt "53" ] ; do
+		PRINTLINE="$LYEAR/$LROUND:"
+		wget -q "https://www.veikkaus.fi/mobile?area=results&game=lotto&op=link_search&type=round&year1=$LYEAR&year2=$LYEAR&round1=$LROUND&round2=$LROUND&results_of=&comesfrom=results" -O "$LFILE"
+
+		VAL=0
+		for i in `cat "$LFILE"|grep -e "class=\"numbers\"" -A $LROWAFTER|grep -e "\<td\>"|grep -v -e "\<td class\=\"separate" -e "secondary"|grep -o [0-9]*` ; do
+		  if [ "$VAL" -lt "6" ]; then
+		    PRINTLINE="$PRINTLINE$i,"
+		  elif [ "$VAL" -eq "6" ] ; then
+		    PRINTLINE="$PRINTLINE$i "
+		  fi
+		  VAL=$((VAL+1))
+		  done
+
+		VAL=0
+		for i in `cat "$LFILE"|grep -e "class=\"numbers\"" -A $LROWAFTER|grep -e "\<td\>"|grep -v -e "\<td class\=\"separate"| grep -e "secondary"|grep -o [0-9]*` ; do
+			if [ "$VAL" -eq "0" ] ; then
+			  PRINTLINE="$PRINTLINE$i"
+			else
+			  PRINTLINE="$PRINTLINE,$i"
+			fi
+			VAL=$((VAL+1))
+			done
+
+		if [ $REPLACE -eq 0 ] ; then
+			echo "$PRINTLINE" >> "$RFILE"
+		else
+			if [[ $REPYEAR -eq $LYEAR && $REPROUND -eq $LROUND ]] ; then
+				REPSEARCH="$REPYEAR\/$REPROUND\:"
+				REPLINE=$(echo "$PRINTLINE"|sed -e 's/\([/:, ]\)/\\\1/g')
+
+				if [ ! "$REPSEARCH" = "$REPLINE" ] ; then
+					sed -i -e 's/'"${REPSEARCH}"'/'"${REPLINE}"'/g' $RFILE
+					debug "Replaced $REPSEARCH with $REPLINE"
+				else
+					debug "Replace search and line are the same, no need to replace. Continuing."
+				fi
+			else
+				debug "Replace year or round differs from current, skipping. $REPYEAR/$REPROUND vs. $LYEAR/$LROUND"
+			fi
+			REPLACE=0
+		fi
+		LROUND=$((LROUND+1))
+		sleep 2
+		if [ "$LYEAR" -eq "$CYEAR" ] ; then
+		  if [ "$LROUND" -ge "$CROUND" ] ; then break ; fi
+		fi
+	done
+
+	LYEAR=$((LYEAR+1))
+	LROUND=1
+
+done
+
+exit 0

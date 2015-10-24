@@ -1,0 +1,40 @@
+#!/bin/bash
+
+function usage() {
+	echo "./lottomain ROWCOUNT=INT TYPE=1(norm)/2(addnum)" 
+	exit
+}
+
+if [ -z $1 ] ; then usage ; fi
+if [ -z $2 ] ; then usage ; fi
+
+if [ $2 -eq 0 ] || [ $2 -gt 2 ] ; then usage ; fi
+
+COUNT=$1
+TYPE=$2
+ROWS=$((COUNT*10))
+DBUPDATED=1
+
+echo -n "Updating rows..."
+if ./lottoupdate ; then
+  echo " done."
+  echo -n "Creating new database..."
+  ./lottomakedb > "lottodb"
+  echo " done."
+else 
+  DBUPDATED=0
+  echo " not updated."
+  echo "No need to update database."
+fi
+
+echo -n "Creating all $ROWS rows"
+./lottokuponki $ROWS $TYPE 
+echo " done."
+
+echo "Selected rows:"
+echo ""
+WEEK=$(date +"%V")"_0"
+./lotto $COUNT "vk$WEEK"
+
+
+

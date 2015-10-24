@@ -1,0 +1,75 @@
+#!/bin/bash
+
+FILE="lottoall~"
+ROWPATH="arvotut/"
+
+
+function createfile() {
+	if [ ! -z $1 ] ; then
+		RES=$1
+		ORIG=$1
+		if [ -f "$ROWPATH$RES" ] ; then
+			# Get the number at the end
+			ADD=$(echo "$RES"|cut -d'_' -f2)
+			# No number or the result is the file -> 0 (first)
+			if [ $ADD = "" ] || [ "$ADD" = "$ORIG" ] ; then ADD="0" ; fi
+			# Increase until free filename is made
+    	while [ -f "$ROWPATH$RES" ] ; do
+    		RES="$ORIG""_""$ADD"
+    		ADD=$((ADD+1))
+    	done
+		fi
+		SAVERESULT="$RES""~"
+		REALRESULT="$RES"
+		FILE_OK=1
+		# Copy the file containing all rows
+		cp "$FILE" "$ROWPATH$REALRESULT""_all"
+	fi
+}
+
+
+if [ -z $1 ] ; then exit 1 ; fi
+if [ ! -z $2 ] ; then
+	SAVERESULT="$2"
+fi
+LINES=`cat "$FILE"|wc -l`
+if [ "$1" -gt "$LINES" ] ; then echo "too big count" ; exit 1 ; fi
+
+VALUE=0
+VFOUND=0
+
+while [ "$VALUE" -lt "$1" ] ; do
+  URAND=`cat /dev/urandom |od -N3 -An -i`
+  Rdate=`date '+%s'`
+  RAND=$((Rdate % $((URAND+1)) ))
+  NVAL=$((RAND % LINES))
+  # Search for created random in the list
+  for SVAL in ${RVAL[*]} ; do
+   if [ "$NVAL" = "$SVAL" ] ; then VFOUND=1 ; fi
+  done
+
+	# if not found add the random to list
+  if [ "$VFOUND" = 0 ] ; then
+    RVAL[$VALUE]=$NVAL
+    VALUE=$((VALUE+1))
+  fi
+  VFOUND=0
+done
+
+COUNT=0
+MAX=$(cat "$FILE"|wc -l)
+cat "$FILE"|while read LINE ; do
+  for VAL in ${RVAL[*]} ; do
+    if [ "$COUNT" = "$VAL" ] ; then 
+    	echo "$LINE"
+    	if [ $SAVERESULT ] ; then
+    		if [ ! $FILE_OK ] ; then createfile "$SAVERESULT" ; fi
+    		echo "$LINE" >> "$ROWPATH$SAVERESULT"
+    	fi
+    fi
+  done
+  COUNT=$((COUNT+1))
+  # Last round, rename the temp file
+  if [ $COUNT -eq $MAX ] ; then mv "$ROWPATH$SAVERESULT" "$ROWPATH$REALRESULT" ; fi
+done
+if [ ! -f "$ROWPATH$SAVERESULT""_all" ] ; then cp "$FILE" "$ROWPATH$SAVERESULT""_all" ; fi

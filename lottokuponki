@@ -1,0 +1,260 @@
+#!/bin/bash
+
+getrandoms() {
+	MAX=$1
+	RCOUNT=$2
+	if [ $RCOUNT -le 0 ] ; then
+		echo ""
+	else
+		VALUE=0
+		VFOUND=0
+		while [ $VALUE -lt $RCOUNT ] ; do
+			URAND=`cat /dev/urandom |od -N1 -An -i`
+			Rdate=`date '+%s'`
+			RAND=$((Rdate % $((URAND*URAND+1)) ))
+			NVAL=$((RAND % $MAX))
+			for SVAL in ${RVAL[*]} ; do
+		 		if [ "$NVAL" = "$SVAL" ] ; then VFOUND=1 ; fi
+			done
+
+			if [ "$VFOUND" = 0 ] ; then
+				RVAL[$VALUE]=$NVAL
+		  		VALUE=$((VALUE+1))
+			fi
+			VFOUND=0
+		done
+	echo "${RVAL[*]}"
+	fi
+}
+
+function bubble_sort()
+{   #
+    # Sorts all positional arguments and echoes them back.
+    #
+    # Bubble sorting lets the heaviest (longest) element sink to the bottom.
+    #
+    local array=($@) max=$(($# - 1))
+    while ((max > 0))
+    do
+        local i=0
+        while ((i < max))
+        do
+            if [ ${array[$i]} -gt ${array[$((i + 1))]} ]
+            then
+                local t=${array[$i]}
+                array[$i]=${array[$((i + 1))]}
+                array[$((i + 1))]=$t
+            fi
+            ((i += 1))
+        done
+        ((max -= 1))
+    done
+    echo ${array[@]}
+}
+
+function readlimits() {
+	if [ ! -z $1 ] ; then
+		LIMITS=( $(cat "$1"|sed -n "$2"p|cut -d',' -f1- --output-delimiter=" ") )
+		TCC="${LIMITS[0]}"
+		HCC="${LIMITS[1]}"
+		ECC="${LIMITS[2]}"
+		ACC="${LIMITS[3]}"
+		UCC="${LIMITS[4]}"
+		LCC="${LIMITS[5]}"
+	fi
+}
+
+
+NC=0
+
+TCC="9"
+HCC="6"
+ECC="2"
+ACC="-3"
+UCC="-7"
+LCC="-11"
+
+#for Cc in `./lottoluokat|cut -d':' -f1- --output-delimiter=" "`; do
+#for Cc in `echo ".5:.6:.9:2.5:1.1:.4:.5"|cut -d':' -f1- --output-delimiter=" "`; do
+#	CLASSES[$NC]=$Cc
+#	NC=$((NC+1))
+#done
+
+F1="lottodb"
+F4="classlimits"
+RESFILE="lottoall~"
+
+if [ -z "$2" ] ; then TYPE="1" ; else TYPE="$2" ; fi
+
+ROW=`cat "$F1"|sed -n "$TYPE"p`
+
+if [ -f "$F4" ] ; then readlimits "$F4" "$TYPE" ; fi
+
+# Lottodb into array
+COUNT=0
+SUM=0
+for i in `echo $ROW|cut -d',' -f1- --output-delimiter=" "`; do
+	COUNT=$((COUNT+1))
+	ARRAY[$COUNT]=$i
+	SUM=$((SUM+i))
+done
+
+AVG=`echo "scale=2; $SUM / $COUNT"|bc`
+
+N=1
+TC=0
+HC=0
+EC=0
+AC=0
+LEC=0
+LOC=0
+BC=0
+
+# Classify numbers between 1 - 39
+while [ $N -lt 40 ] ; do
+	DIFF=`echo "scale=2; (${ARRAY[$N]} / $AVG - 1) * 100 "|bc|cut -d'.' -f1`
+	if [ $DIFF -gt $TCC ] ; then
+		TOP[$TC]=$N
+		TC=$((TC+1))
+	fi
+	TCCC=$((TCC+1))
+	if [ $DIFF -lt $TCCC ] ; then
+		if [ $DIFF -gt $HCC ] ; then
+			HIGH[$HC]=$N
+			HC=$((HC+1))
+		elif [ $DIFF -gt $ECC ] ; then
+			ELEV[$EC]=$N
+			EC=$((EC+1))
+		elif [ $DIFF -gt "$ACC" ] ; then
+			AVGS[$AC]=$N
+			AC=$((AC+1))
+		elif [ $DIFF -gt "$UCC" ] ; then
+			LESS[$LEC]=$N
+			LEC=$((LEC+1))
+		elif [ $DIFF -gt "$LCC" ] ; then
+			LOW[$LOC]=$N
+			LOC=$((LOC+1))
+		else
+			BOT[$BC]=$N
+			BC=$((BC+1))
+		fi
+	fi
+	N=$((N+1))
+done
+
+# All number classifications 0 to 6
+GALL=( 	A1=${TOP[@]}
+	A2=${HIGH[@]}
+	A3=${ELEV[@]}
+	A4=${AVGS[@]}
+	A5=${LESS[@]}
+	A6=${LOW[@]}
+	A7=${BOT[@]}
+	A8=""
+)
+
+# ToDo: read from file
+#PATTERNS="THAAUUL HAUUUUL EHAAULX EEAUUXX HHAUBXX THEAULB TAAAUXX AAAUUUX AUBLXXX HHEAUXX"
+#PATTERNS="THEAUBX EEUUBXX HHAUBXX HHAUULB HHHAUUX"
+PATTERNS="$(cat 'patterns.list'|sed -n "$TYPE"p)"
+# Different classes
+HCLASSES="T H E A U L B X"
+
+if [ -z "$1" ] || [ "$1" -eq 0 ] ; then
+	itercount=0
+	for GRP in ${!GALL[@]} ; do
+		if [ $itercount -ge 7 ] ; then break; fi
+               	unset CURRENT
+                GC=0
+		for i in `echo ${GALL[$GRP]}|cut -d'=' -f2` ; do CURRENT[$GC]=$i ; GC=$((GC+1)) ; done
+		TEMPCLASSES=( $HCLASSES )
+		echo "${TEMPCLASSES[$itercount]}: ${CURRENT[@]}"
+		itercount=$((itercount+1))
+	done
+	exit
+else
+	ROWCOUNT="$1"
+fi
+
+RC=1
+
+# Count patterns
+PATCOUNT=0
+
+for i in $PATTERNS ; do PATCOUNT=$((PATCOUNT+1)); done
+
+# Determine rowcount per pattern
+if [ $ROWCOUNT -lt $PATCOUNT ] ; then
+	PERPAT=1
+else
+	PERPAT=$((ROWCOUNT/PATCOUNT))
+fi
+
+
+LIMIT=$((ROWCOUNT/10))
+truncate -s 0 $RESFILE
+
+# Do for each pattern
+for PATTERN in $PATTERNS ; do
+	NUMB=0
+	TC=1
+	# Get the amounts of classes in this pattern
+	for CLASS in $HCLASSES ; do
+		TYPE=`echo $PATTERN|grep -o "[$CLASS]*"`
+		TYPES[$NUMB]="${#TYPE}"
+		NUMB=$((NUMB+1))
+	done
+
+	# Do the same amount for each pattern
+	while [ $TC -le $PERPAT ] ; do
+		ROW=""
+		NUMB=0
+		RNC=0
+		unset RANDOMROW
+		# Take a array within the bigger array
+		for GRP in ${!GALL[@]} ; do
+			unset CURRENT
+			GC=0
+			# Initialize a current pattern, a backwards method..
+			if [ $NUMB -lt 7 ] ; then 
+				# Normal row with predefined numbers
+				for i in `echo ${GALL[$GRP]}|cut -d'=' -f2` ; do CURRENT[$GC]=$i ; GC=$((GC+1)) ; done
+			else
+				# the random row
+				CURRENT=( ${RANDOMROW[@]} )
+			fi
+			# Create randoms if there is something to create
+			if [ "${TYPES[$NUMB]}" -gt 0 ] ; then
+				for i in $(getrandoms "${#CURRENT[@]}" "${TYPES[$NUMB]}") ; do
+					ROW="$ROW${CURRENT[$i]}"
+					RNC=$((RNC+1))
+					# Add comma to the end if not the last
+					if [ "$RNC" -lt 7 ] ; then ROW="$ROW," ; fi
+				done
+			# Otherwise add the numbers to randoms
+			else
+				# Only if not dealing with the random row as current
+				if [ $NUMB -lt 7 ] ; then
+					RANDOMROW=( ${RANDOMROW[@]} ${CURRENT[@]} )
+				fi
+			fi
+			NUMB=$((NUMB+1))
+		done
+		#echo "$ROW"
+		ROWARRAY=(`echo $ROW|cut -d',' -f1- --output-delimiter=' '`)
+		SN=0
+		SELECTED=""
+		for ITEM in $(bubble_sort ${ROWARRAY[*]}) ; do
+			SELECTED="$SELECTED$ITEM"
+			if [ $SN -lt 6 ] ; then SELECTED="$SELECTED," ; fi
+			SN=$((SN+1))
+		done
+		echo "$SELECTED" >> "lottoall~"
+		REMAINDER=$((RC%LIMIT))
+        if [ $REMAINDER -eq 0 ] ; then
+            echo -n "."
+        fi
+		RC=$((RC+1))
+		TC=$((TC+1))
+	done
+done

@@ -1,0 +1,123 @@
+#!/bin/bash
+
+usage() {
+	echo "./lottochecker <number1,number2,...,number7> <addnumber1,addnumber2> <doubling> filepath"
+	exit
+}
+
+if [ -z $1 ] ; then usage ; fi
+if [ -z $2 ] ; then usage ; fi
+if [ -z $3 ] ; then usage ; fi
+if [ -z $4 ] ; then FNAME="lottoall" ; else FNAME="$4" ; fi
+
+NUM=$(echo $1|cut -d',' -f1- --output-delimiter=' ')
+LNUM=$(echo $2|cut -d',' -f1- --output-delimiter=' ')
+DOUB=$3
+
+FOUR=0
+FOURDBL=0
+FIVE=0
+FIVEDBL=0
+SIX=0
+SIX_ADD=0
+SIXDBL=0
+SIX_ADDDBL=0
+SEVEN=0
+SEVENDBL=0
+
+ROWS=0
+
+echo "Checking $FNAME"
+while read line; do
+	N=$(echo $line|cut -d',' -f1- --output-delimiter=' ')
+	MATCHES=0
+
+#	echo "$line : "
+	for j in $N; do
+		for i in $NUM ; do
+#			echo -n "$i = $j"
+			if [ $i -eq $j ] ; then
+				MATCHES=$((MATCHES+1))
+#				echo -n "m"
+#			fi
+#			else echo -n " "
+			fi
+		done
+#		echo " MATCHES = $MATCHES "
+	done
+	if [ "$MATCHES" -gt 3 ] ; then
+		#echo -n $MATCHES
+
+		LM=0
+		for x in $N; do
+			for i in $LNUM ; do
+				if [ $x = $i ] ; then 
+					LM=$((LM+1))
+				fi
+			done
+		done
+		DBL=0
+		for y in $N; do
+			if [ $y = $DOUB ] ; then
+				DBL=1
+			fi
+		done
+
+		#if [ $LM -gt 0 ] || [ $MATCHES -gt 3 ]  ; then 
+			#echo -n "$MATCHES + $LM"
+			#if [ $DBL -gt 0 ] ; then
+			#	echo " x2"
+			#else
+			#	echo ""
+			#fi
+		#fi
+		case $MATCHES in
+		    4)
+		        if [ $DBL -gt 0 ] ; then
+				    FOURDBL=$((FOURDBL+1))
+			    else
+				    FOUR=$((FOUR+1))
+			    fi
+		        ;;
+		    5)
+		        if [ $DBL -gt 0 ] ; then
+				    FIVEDBL=$((FIVEDBL+1))
+			    else
+				    FIVE=$((FIVE+1))
+			    fi
+		        ;;
+		    6)
+		        if [ $DBL -gt 0 ] ; then
+		            if [ $LM -gt 0 ] ; then
+		                SIX_ADDDBL=$((SIX_ADDDBL+1))
+		            else
+    				    SIXDBL=$((SIXDBL+1))
+    				fi
+			    else
+				    if [ $LM -gt 0 ] ; then
+		                SIX_ADD=$((SIX_ADD+1))
+		            else
+    				    SIX=$((SIX+1))
+    				fi
+			    fi
+		        ;;
+		    7)
+		        if [ $DBL -gt 0 ] ; then
+				    SEVENDBL=$((SEVENDBL+1))
+			    else
+				    SEVEN=$((SEVEN+1))
+			    fi
+		        ;;
+		    *)
+		        ;;
+		esac
+	fi
+	ROWS=$((ROWS+1))
+done < "$FNAME"
+
+echo -e "FOUR :\t$FOUR\t($FOURDBL x2)"
+echo -e "FIVE :\t$FIVE\t($FIVEDBL x2)"
+echo -e "SIX  :\t$SIX\t($SIXDBL x2)"
+echo -e "  +1 :\t$SIX_ADD\t($SIX_ADDDBL x2)"
+echo -e "SEVEN:\t$SEVEN\t($SEVENDBL x2)"
+echo -e "PRICE:\t$ROWS €"

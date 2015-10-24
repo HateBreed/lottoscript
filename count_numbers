@@ -1,0 +1,122 @@
+#!/bin/bash
+
+getrandoms() {
+	MAX=$1
+	RCOUNT=$2
+	if [ $RCOUNT -le 0 ] ; then
+		echo ""
+	else
+		VALUE=0
+		VFOUND=0
+		while [ $VALUE -lt $RCOUNT ] ; do
+			URAND=`cat /dev/urandom |od -N1 -An -i`
+			Rdate=`date '+%s'`
+			RAND=$((Rdate % $((URAND*URAND+1)) ))
+			NVAL=$((RAND % $MAX))
+			if [ $NVAL -gt 0 ] ; then
+				for SVAL in ${RVAL[*]} ; do
+			 		if [ "$NVAL" = "$SVAL" ] ; then VFOUND=1 ; fi
+				done
+
+				if [ "$VFOUND" = 0 ] ; then
+					RVAL[$VALUE]=$NVAL
+					VALUE=$((VALUE+1))
+				fi
+				VFOUND=0
+			fi
+		done
+	echo "${RVAL[*]}"
+	fi
+}
+
+function bubble_sort()
+{   #
+    # Sorts all positional arguments and echoes them back.
+    #
+    # Bubble sorting lets the heaviest (longest) element sink to the bottom.
+    #
+    local array=($@) max=$(($# - 1))
+    while ((max > 0))
+    do
+        local i=0
+        while ((i < max))
+        do
+            if [ ${array[$i]} -gt ${array[$((i + 1))]} ]
+            then
+                local t=${array[$i]}
+                array[$i]=${array[$((i + 1))]}
+                array[$((i + 1))]=$t
+            fi
+            ((i += 1))
+        done
+        ((max -= 1))
+    done
+    echo ${array[@]}
+}
+
+if [ $# -eq 0 ] ; then exit ; fi
+I=1
+ROWS=$(wc -l $*|tail -1|cut -d' ' -f2)
+
+unset NUM
+
+while [ $I -lt 40 ] ; do 
+  NUM[$I]=0
+  I=$((I+1))
+done
+
+cat $*|while read line; do 
+  IFS=$','
+  
+  for i in $line ; do 
+    VAL=${NUM[$i]}
+    NUM[$i]=$((VAL+1))
+  done
+  
+  ROWS=$((ROWS-1))
+  RCOUNT=1
+  
+  if [ $ROWS -eq 1 ] ; then
+  
+		TOTAL=0
+		I=1
+		BIGGEST=0
+		
+		for c in ${NUM[*]} ; do 
+		  TOTAL=$((TOTAL+c))
+		  I=$((I+1))
+		  if [ $c -gt $BIGGEST ] ; then BIGGEST=$c ; fi
+		done
+		
+		AVGR=$((TOTAL/I))
+		LIMIT=$(echo "$BIGGEST / 10"|bc)
+		AVG=$((AVGR+LIMIT))
+		#echo "BIGGEST=$BIGGEST, LIMIT=$LIMIT, AVGR=$AVGR, AVG=$AVG"
+		I=1
+  
+    for c in ${NUM[*]} ; do 
+      if [ $c -gt $AVG ] ; then 
+        #echo -e "$I:\t$c"
+        RNUMS[$RCOUNT]=$I
+        RCOUNT=$((RCOUNT+1))
+      fi
+      I=$((I+1))
+    done
+
+    ROWC=0
+    while [ $ROWC -lt 10 ] ; do
+    	unset ROW
+    	unset RNC
+		  for index in $(getrandoms "${#RNUMS[@]}" "7") ; do
+				ROW="$ROW${RNUMS[$index]}"
+				RNC=$((RNC+1))
+				# Add comma to the end if not the last
+				if [ "$RNC" -lt 7 ] ; then ROW="$ROW," ; fi
+			done
+		
+			bubble_sort ${ROW[*]}
+			#echo "ROW: ${ROW[*]}"
+			ROWC=$((ROWC+1))
+		done
+  fi
+done
