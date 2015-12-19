@@ -27,7 +27,7 @@ function createfile() {
 	fi
 }
 
-
+if [ ! -d "$ROWPATH" ] ; then mkdir -p "$ROWPATH" ; fi
 if [ -z $1 ] ; then exit 1 ; fi
 if [ ! -z $2 ] ; then
 	SAVERESULT="$2"
