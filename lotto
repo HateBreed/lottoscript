@@ -1,7 +1,7 @@
 #!/bin/bash
 
 FILE="lottoall~"
-ROWPATH="arvotut/"
+ROWPATH="arvotut/$(date +%Y)/"
 
 
 function createfile() {

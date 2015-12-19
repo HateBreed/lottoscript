@@ -47,10 +47,29 @@ while [ "$LYEAR" -lt "$((CYEAR+1))" ] ; do
 
 	while [ "$LROUND" -lt "53" ] ; do
 		PRINTLINE="$LYEAR/$LROUND:"
-		wget -q "https://www.veikkaus.fi/mobile?area=results&game=lotto&op=link_search&type=round&year1=$LYEAR&year2=$LYEAR&round1=$LROUND&round2=$LROUND&results_of=&comesfrom=results" -O "$LFILE"
+		debug "now: $PRINTLINE"
+		#grep -o -e "Kierros $R</strong> / $Y: <strong>[0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\} + [0-9]\{1,2\}, [0-9]\{1,2\}" lottonumerot-kierros
+		#wget -q "https://www.veikkaus.fi/mobile?area=results&game=lotto&op=link_search&type=round&year1=$LYEAR&year2=$LYEAR&round1=$LROUND&round2=$LROUND&results_of=&comesfrom=results" -O "$LFILE"
+		if [ -f $LFILE ]; then
+			if [ $(find $LFILE -ctime +6) ]; then
+				debug "Retrieving new resultfile to replace old.."
+				wget http://www.lottovoitto.com/lottonumerot-kierros -O "$LFILE"
+			else
+				debug "File less than week old, no need to retrieve"
+			fi
+		else
+			debug "Retrieveing new resultfile.."
+			wget http://www.lottovoitto.com/lottonumerot-kierros -O "$LFILE"
+			debug ".done"
+		fi
 
+		if [ $LROUND -lt 10 ] ; then LROUNDSTR="0$LROUND" ; else LROUNDSTR="$LROUND" ; fi
+
+		CRESULTROW=$(grep -o -e "Kierros $LROUNDSTR</strong> / $LYEAR: <strong>[0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\} + [0-9]\{1,2\}, [0-9]\{1,2\}" $LFILE)
+		debug "row: $CRESULTROW"
 		VAL=0
-		for i in `cat "$LFILE"|grep -e "class=\"numbers\"" -A $LROWAFTER|grep -e "\<td\>"|grep -v -e "\<td class\=\"separate" -e "secondary"|grep -o [0-9]*` ; do
+		#for i in `cat "$LFILE"|grep -e "class=\"numbers\"" -A $LROWAFTER|grep -e "\<td\>"|grep -v -e "\<td class\=\"separate" -e "secondary"|grep -o [0-9]*` ; do
+		for i in $(echo $CRESULTROW|grep -o -e "[0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}, [0-9]\{1,2\}"|sed 's/[,]//g') ; do
 		  if [ "$VAL" -lt "6" ]; then
 		    PRINTLINE="$PRINTLINE$i,"
 		  elif [ "$VAL" -eq "6" ] ; then
@@ -60,7 +79,8 @@ while [ "$LYEAR" -lt "$((CYEAR+1))" ] ; do
 		  done
 
 		VAL=0
-		for i in `cat "$LFILE"|grep -e "class=\"numbers\"" -A $LROWAFTER|grep -e "\<td\>"|grep -v -e "\<td class\=\"separate"| grep -e "secondary"|grep -o [0-9]*` ; do
+		#for i in `cat "$LFILE"|grep -e "class=\"numbers\"" -A $LROWAFTER|grep -e "\<td\>"|grep -v -e "\<td class\=\"separate"| grep -e "secondary"|grep -o [0-9]*` ; do
+			for i in $(echo $CRESULTROW|grep -o -e "+ [0-9]\{1,2\}, [0-9]\{1,2\}"|sed 's/\(+ \)//g'|sed 's/[,]//g') ; do
 			if [ "$VAL" -eq "0" ] ; then
 			  PRINTLINE="$PRINTLINE$i"
 			else
