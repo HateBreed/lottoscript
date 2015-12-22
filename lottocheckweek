@@ -1,0 +1,32 @@
+#!/bin/bash
+
+./lottoupdate
+
+if [ $(date +%Y) -eq 1 ] ; then
+	YEAR=$(expr $(date +%Y) - 1)
+	WEEK=$(date -d "$YEAR""1231" +%V)
+else
+	WEEK=$(expr $(date +%V) - 1)
+	YEAR=$(date +%Y)
+fi
+
+if [ $# -eq 2 ] && [ $1 -gt 0 ] && [ $1 -le 53 ] ; then
+	WEEK=$1
+fi
+if [ $# -eq 2 ] && [ $2 -gt 0 ] && [ $2 -le $YEAR ] ; then
+        YEAR=$2
+fi
+
+NUMLINE=$(grep -e "$YEAR"/"$WEEK"":" lottorows)
+NUMROW=$(echo $NUMLINE|grep -o -P '(?<=:).*(?= )')
+ADDROW=$(echo $NUMLINE|grep -o -P '(?<= ).*$')
+
+if [ $WEEK -lt 10 ] ; then 
+	WEEKSTR="vk0""$WEEK"
+else
+	WEEKSTR="vk""$WEEK"
+fi
+
+for i in $(find arvotut/$YEAR/$WEEKSTR* -type f) ; do
+	./lottochecker $NUMROW $ADDROW 0 $i
+done
