@@ -6,7 +6,7 @@ ROWPATH="arvotut/$(date +%Y)/"
 
 function createfile() {
 	if [ ! -z $1 ] ; then
-		RES=$1
+		RES=$1"_0"
 		ORIG=$1
 		if [ -f "$ROWPATH$RES" ] ; then
 			# Get the number at the end
@@ -14,10 +14,11 @@ function createfile() {
 			# No number or the result is the file -> 0 (first)
 			if [ $ADD = "" ] || [ "$ADD" = "$ORIG" ] ; then ADD="0" ; fi
 			# Increase until free filename is made
-    	while [ -f "$ROWPATH$RES" ] ; do
-    		RES="$ORIG""_""$ADD"
-    		ADD=$((ADD+1))
-    	done
+		
+    	    while [ -f "$ROWPATH$RES" ] ; do
+    		    RES="$ORIG""_""$ADD"
+        		ADD=$((ADD+1))
+         	done
 		fi
 		SAVERESULT="$RES""~"
 		REALRESULT="$RES"

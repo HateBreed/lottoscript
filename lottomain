@@ -33,7 +33,7 @@ echo " done."
 
 echo "Selected rows:"
 echo ""
-WEEK=$(date +"%V")"_0"
+WEEK=$(date +"%V")
 ./lotto $COUNT "vk$WEEK"
 
 
